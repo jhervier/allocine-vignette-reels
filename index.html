@@ -187,6 +187,124 @@ details.fold>.reset{margin:12px 16px 14px}
 (function(){
 'use strict';
 
+/* ---------- Photo nette : réduction filtrée Lanczos 3 (même filtre que Story Affiche) ----------
+   drawImage réduit une grande photo sans assez filtrer : les détails fins crénèlent (« pixellisé »).
+   HQ.draw() remplace drawImage pour la photo : pendant les gestes, dessin rapide habituel ; 150 ms après
+   le dernier geste, un Worker recalcule la zone visible au pixel près avec un filtre Lanczos 3 (le plus
+   proche de Photoshop : netteté 8,65 contre 8,52, mesurée sur Story Affiche), gardé en cache.
+   HQ.ready() attend les calculs en cours : l'export s'en sert pour ne jamais sortir la version rapide. */
+var HQ = (function(){
+  function workerMain(){
+    var SRC = new Map();   /* sources reçues (les 12 dernières) */
+    function lanczos(x){ if (x === 0) return 1; if (x <= -3 || x >= 3) return 0; var p = Math.PI*x; return 3*Math.sin(p)*Math.sin(p/3)/(p*p); }
+    /* poids d'un axe : pour chaque pixel de sortie, 1er pixel source + poids normalisés ; couverture du bord */
+    function axis(n, start, d0, dl, s){
+      var f = Math.max(1, 1/s), R = 3*f, first = new Int32Array(n), w = [], cov = new Float32Array(n);
+      for (var i=0;i<n;i++){
+        var X = start + i, u = (X + 0.5 - d0)/s - 0.5, a = Math.ceil(u - R), b = Math.floor(u + R), ws = [], sum = 0, k;
+        for (k=a;k<=b;k++){ var v = lanczos((k - u)/f); ws.push(v); sum += v; }
+        for (k=0;k<ws.length;k++) ws[k] /= sum;
+        first[i] = a; w.push(Float32Array.from(ws));
+        cov[i] = Math.max(0, Math.min(X + 1, d0 + dl) - Math.max(X, d0));
+      }
+      return { first:first, w:w, cov:cov };
+    }
+    self.onmessage = function(e){
+      var m = e.data;
+      if (m.type === 'src'){ SRC.delete(m.id); SRC.set(m.id, { w:m.w, h:m.h, d:new Uint8ClampedArray(m.data) }); if (SRC.size > 12) SRC.delete(SRC.keys().next().value); return; }
+      var S = SRC.get(m.id);
+      if (!S){ self.postMessage({ key:m.key, missing:true, id:m.id }); return; }
+      SRC.delete(m.id); SRC.set(m.id, S);
+      var sw = S.w, sh = S.h, d = S.d, W = m.x1 - m.x0, H = m.y1 - m.y0, s = m.dw / sw;
+      var hx = axis(W, m.x0, m.dx, m.dw, s), vy = axis(H, m.y0, m.dy, m.dh, m.dh / sh);
+      var r0 = sh, r1 = -1, i, j, k;
+      for (j=0;j<H;j++){ r0 = Math.min(r0, vy.first[j]); r1 = Math.max(r1, vy.first[j] + vy.w[j].length - 1); }
+      r0 = Math.max(0, r0); r1 = Math.min(sh-1, r1);
+      var nr = Math.max(0, r1 - r0 + 1), tmp = new Float32Array(nr*W*3);
+      for (var y=0;y<nr;y++){   /* passe horizontale, bords prolongés */
+        var row = (y + r0)*sw*4, t = y*W*3;
+        for (i=0;i<W;i++){
+          var a = hx.first[i], wl = hx.w[i], R = 0, G = 0, B = 0;
+          for (k=0;k<wl.length;k++){ var x = a + k; x = x < 0 ? 0 : x >= sw ? sw-1 : x; var p = row + x*4, ww = wl[k]; R += d[p]*ww; G += d[p+1]*ww; B += d[p+2]*ww; }
+          tmp[t++] = R; tmp[t++] = G; tmp[t++] = B;
+        }
+      }
+      var out = new Uint8ClampedArray(W*H*4), o = 0;
+      for (j=0;j<H;j++){         /* passe verticale */
+        var b0 = vy.first[j], wv = vy.w[j], cy = vy.cov[j];
+        for (i=0;i<W;i++){
+          var R2 = 0, G2 = 0, B2 = 0;
+          for (k=0;k<wv.length;k++){ var yy = b0 + k; yy = yy < r0 ? r0 : yy > r1 ? r1 : yy; var q = ((yy - r0)*W + i)*3, w2 = wv[k]; R2 += tmp[q]*w2; G2 += tmp[q+1]*w2; B2 += tmp[q+2]*w2; }
+          out[o++] = R2; out[o++] = G2; out[o++] = B2; out[o++] = 255*cy*hx.cov[i];
+        }
+      }
+      self.postMessage({ key:m.key, ok:true, w:W, h:H, data:out.buffer }, [out.buffer]);
+    };
+  }
+  var worker = null, off = false, ids = new WeakMap(), nextId = 1, sent = {}, cache = new Map(), cachePx = 0,
+      pending = new Map(), inflight = new Map(), timer = 0, waiters = [], api = { onUpdate:null };
+  var BUDGET = 32e6;   /* pixels gardés en cache (~128 Mo) */
+  function idOf(src){ var i = ids.get(src); if (!i){ i = nextId++; ids.set(src, i); } return i; }
+  function draw(g, src, dx, dy, dw, dh, box){
+    var cw = g.canvas.width, ch = g.canvas.height, b = box || { x:0, y:0, w:cw, h:ch };
+    var x0 = Math.max(0, Math.floor(b.x), Math.floor(dx)), y0 = Math.max(0, Math.floor(b.y), Math.floor(dy)),
+        x1 = Math.min(cw, Math.ceil(b.x + b.w), Math.ceil(dx + dw)), y1 = Math.min(ch, Math.ceil(b.y + b.h), Math.ceil(dy + dh));
+    var tr = g.getTransform ? g.getTransform() : null;
+    if (off || x1 <= x0 || y1 <= y0 || (tr && !tr.isIdentity)){ fast(); return; }
+    var id = idOf(src), key = [id, dx.toFixed(3), dy.toFixed(3), dw.toFixed(3), dh.toFixed(3), x0, y0, x1, y1].join('|');
+    var hit = cache.get(key);
+    if (hit){ cache.delete(key); cache.set(key, hit); g.drawImage(hit, x0, y0); return; }
+    fast();
+    if (!inflight.has(key)){ pending.set(key, { src:src, id:id, key:key, dx:dx, dy:dy, dw:dw, dh:dh, x0:x0, y0:y0, x1:x1, y1:y1 }); clearTimeout(timer); timer = setTimeout(run, 150); }
+    function fast(){ g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high'; g.drawImage(src, dx, dy, dw, dh); }
+  }
+  function sendSrc(job){
+    var src = job.src, iw = src.naturalWidth || src.width, ih = src.naturalHeight || src.height;
+    var c = document.createElement('canvas'); c.width = iw; c.height = ih;
+    var x = c.getContext('2d'); x.drawImage(src, 0, 0);
+    var d = x.getImageData(0, 0, iw, ih);
+    worker.postMessage({ type:'src', id:job.id, w:iw, h:ih, data:d.data.buffer }, [d.data.buffer]);
+    sent[job.id] = true;
+  }
+  function post(job){ if (!sent[job.id]) sendSrc(job); inflight.set(job.key, job); worker.postMessage({ type:'run', id:job.id, key:job.key, dx:job.dx, dy:job.dy, dw:job.dw, dh:job.dh, x0:job.x0, y0:job.y0, x1:job.x1, y1:job.y1 }); }
+  function run(){
+    clearTimeout(timer);
+    if (off){ pending.clear(); settle(); return; }
+    try {
+      if (!worker){
+        worker = new Worker(URL.createObjectURL(new Blob(['(' + workerMain.toString() + ')()'], { type:'text/javascript' })));
+        worker.onmessage = function(e){
+          var m = e.data, job = inflight.get(m.key);
+          if (m.missing && job){ sent[m.id] = false; post(job); return; }
+          inflight.delete(m.key);
+          if (m.ok){
+            var c = document.createElement('canvas'); c.width = m.w; c.height = m.h;
+            c.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(m.data), m.w, m.h), 0, 0);
+            cache.set(m.key, c); cachePx += m.w*m.h;
+            while (cachePx > BUDGET && cache.size > 1){ var k = cache.keys().next().value, v = cache.get(k); cache.delete(k); cachePx -= v.width*v.height; }
+          }
+          if (!inflight.size){ if (api.onUpdate) api.onUpdate(); settle(); }
+        };
+        worker.onerror = function(){ off = true; inflight.clear(); pending.clear(); settle(); };
+      }
+      pending.forEach(post); pending.clear();
+    } catch (err){ off = true; pending.clear(); settle(); }
+    if (!inflight.size) settle();
+  }
+  function settle(){ if (pending.size || inflight.size) return; var w = waiters; waiters = []; w.forEach(function(f){ f(); }); }
+  /* attend la fin des calculs demandés (lance tout de suite ceux en attente) */
+  function ready(){
+    return new Promise(function(res){
+      if (off || (!pending.size && !inflight.size)){ res(); return; }
+      waiters.push(res); if (pending.size) run();
+      setTimeout(function(){ var i = waiters.indexOf(res); if (i >= 0){ waiters.splice(i, 1); res(); } }, 10000);   /* garde-fou */
+    });
+  }
+  api.draw = draw; api.ready = ready;
+  return api;
+})();
+HQ.onUpdate = function(){ schedule(); };   /* photo nette prête : on redessine */
+
 var W = 1080, H = 1920, SUFFIX = '_AC_9x16_Vignette';
 
 /* ---------- Réglages relevés sur les exemples (pixels sur 1080 × 1920) ---------- */
@@ -363,8 +481,7 @@ function compose(){
   ctx.fillStyle = '#000'; ctx.fillRect(0,0,W,H);
   if (photo){
     var e = extent(), iw = photo.naturalWidth || photo.width, ih = photo.naturalHeight || photo.height;
-    ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(photo, -e.ex*view.px, -e.ey*view.py, iw*e.s, ih*e.s);
+    HQ.draw(ctx, photo, -e.ex*view.px, -e.ey*view.py, iw*e.s, ih*e.s);   /* photo nette (voir HQ) */
   }
   if (!ready) return;
   ctx.drawImage(img.light, 0, 0, W, H);                 /* lumière et ombre */
@@ -585,7 +702,8 @@ cv.addEventListener('wheel', function(e){
 }, { passive:false });
 
 /* ---------- Export ---------- */
-function blobOf(type, q){ compose(); return new Promise(function(res, rej){ cv.toBlob(function(b){ b ? res(b) : rej(new Error('blob')); }, type, q); }); }
+/* l'export attend la photo nette (voir HQ) */
+function blobOf(type, q){ return HQ.ready().then(function(){ compose(); return new Promise(function(res, rej){ cv.toBlob(function(b){ b ? res(b) : rej(new Error('blob')); }, type, q); }); }); }
 function fileName(ext){
   var n = ($('fname').value || '').trim().replace(/\.(png|jpe?g)$/i,'').replace(/[\\/:*?"<>|]+/g,'-').trim();
   return (n.toUpperCase() || 'CLIENT_PRODUIT_FORMAT') + SUFFIX +(ext ? '.' + ext : '');
@@ -603,7 +721,7 @@ function save(blob, name){
 $('dlJpg').addEventListener('click', function(){ blobOf('image/jpeg',0.95).then(function(b){ save(b,fileName('jpg')); say('Image .jpg téléchargée.','ok','status2'); }).catch(function(){ say("L'export a échoué.",'err','status2'); }); });
 
 syncSliders(); schedule();
-window.__vig = { rebuild:buildText, setPhoto:setPhoto, CFG:CFG, isReady:function(){ return ready; }, layout:function(){ return currentLayout; } };
+window.__vig = { HQ:HQ, rebuild:buildText, setPhoto:setPhoto, CFG:CFG, isReady:function(){ return ready; }, layout:function(){ return currentLayout; } };
 /* ---------- Mobile : barre compacte quand le grand aperçu sort de l'écran ----------
    En haut de page : grand aperçu et recadrage (inchangés). Plus bas : une barre fixe avec la miniature. */
 var mini = $('mini'), miniCx = $('miniCv').getContext('2d'), miniOn = false;
