@@ -100,6 +100,8 @@ details.fold>.reset{margin:12px 16px 14px}
   .hint{display:none}
   .exports{grid-template-columns:1fr}
 }
+.trashrow{display:flex;justify-content:flex-end;margin:-6px 0 6px}
+.trashrow .trash{font-size:16px;padding:5px 10px}
 </style>
 </head>
 <body>
@@ -116,7 +118,7 @@ details.fold>.reset{margin:12px 16px 14px}
       <div class="drop" id="drop"><div><strong>Glisse l'image ici</strong>ou colle-la avec Ctrl+V<br>ou choisis un fichier<br>ou donne un lien</div></div>
     </div>
     <label class="safe-toggle"><input type="checkbox" id="safeChk"> Afficher les safe zones (jamais dans l'export)</label>
-    <p class="hint">Sur l'aperçu : glisse pour recadrer, molette ou deux doigts pour zoomer.</p>
+    <p class="hint">Sur l'aperçu : glisse pour recadrer, molette ou deux doigts pour zoomer.<br>Raccourcis : <b>Ctrl+Z</b> annuler · <b>Ctrl+Maj+Z</b> rétablir.</p>
   </section>
 
   <section class="panel">
@@ -153,6 +155,7 @@ details.fold>.reset{margin:12px 16px 14px}
 
     <fieldset>
       <legend>Textes</legend>
+      <div class="trashrow"><button type="button" class="trash" id="clearTxt" title="Vider tous les textes" aria-label="Vider tous les textes">🗑</button></div>
       <div class="field">
         <label for="title">Rubrique</label>
         <input type="text" id="title" value="Rubrique" autocomplete="off" spellcheck="false">
@@ -741,6 +744,108 @@ if ('IntersectionObserver' in window){
   }, { threshold:[0, 0.35, 0.7, 1] }).observe($('wrap'));
 }
 
+
+/* ---------- Annuler / rétablir : Ctrl+Z et Ctrl+Maj+Z (50 actions), comme les carrousels ----------
+   Un état = textes + photo + recadrage (+ réglages propres à la page, voir UNDO).
+   Après chaque modification, l'état est comparé au dernier enregistré : s'il a changé, l'état
+   d'avant part dans l'historique. Une même saisie dans un champ, un même glisser ou une même
+   série de coups de molette ne font qu'une action. Le nom du fichier et le lien gardent
+   l'annulation normale du navigateur. */
+var UNDO = { fields:['title','main'], selects:[], exportIds:['dlJpg'] };
+var undoS = [], redoS = [], HMAX = 50, editKey = null, lastSt = null, checkQ = false, gestN = 0, wheelT = null, uniq = 0;
+function stOf(){
+  var t = {};
+  UNDO.fields.forEach(function(id){ var el = $(id); t[id] = el.isContentEditable ? el.innerHTML : el.value; });
+  UNDO.selects.forEach(function(id){ t[id] = $(id).value; });
+  return { t:t, photo:photo, view:{ zoom:view.zoom, px:view.px, py:view.py } };
+}
+function sameSt(a, b){
+  if (a.photo !== b.photo || a.view.zoom !== b.view.zoom || a.view.px !== b.view.px || a.view.py !== b.view.py) return false;
+  for (var k in a.t) if (a.t[k] !== b.t[k]) return false;
+  return true;
+}
+/* à quelle action rattacher la modification en cours */
+function keyNow(){
+  if (gest || Object.keys(pts).length) return 'geste' + gestN;
+  if (wheelT) return 'molette';
+  var a = document.activeElement;
+  if (a && a.id && (a.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))) return a.id;
+  return 'action' + (++uniq);
+}
+function check(){
+  checkQ = false;
+  var st = stOf();
+  if (!lastSt || sameSt(st, lastSt)){ lastSt = st; return; }
+  var k = keyNow();
+  if (k !== editKey){ undoS.push(lastSt); if (undoS.length > HMAX) undoS.shift(); redoS.length = 0; editKey = k; }
+  lastSt = st;
+}
+function queueCheck(){ if (!checkQ){ checkQ = true; Promise.resolve().then(check); } }
+/* tout redessin passe par schedule : on vérifie juste après */
+var scheduleSansHisto = schedule;
+schedule = function(p){ scheduleSansHisto(p); queueCheck(); };
+document.addEventListener('input', queueCheck);
+document.addEventListener('change', function(){ queueCheck(); Promise.resolve().then(function(){ editKey = null; }); });
+document.addEventListener('focusout', function(){ editKey = null; });
+cv.addEventListener('pointerdown', function(){ gestN++; }, true);   /* capture : avant le geste lui-même */
+cv.addEventListener('wheel', function(){
+  clearTimeout(wheelT); wheelT = setTimeout(function(){ wheelT = null; if (editKey === 'molette') editKey = null; }, 600);
+}, { capture:true, passive:true });
+/* une image remplacée par sa version définitive (ex. conversion CMJN) n'est pas une action */
+function undoSwapPhoto(a, b){
+  [undoS, redoS, [lastSt]].forEach(function(list){ list.forEach(function(st){ if (st && st.photo === a) st.photo = b; }); });
+}
+function applySt(st){
+  UNDO.fields.forEach(function(id){
+    var el = $(id), v = st.t[id], cur = el.isContentEditable ? el.innerHTML : el.value;
+    if (cur === v) return;
+    if (el.isContentEditable) el.innerHTML = v; else el.value = v;
+    el.dispatchEvent(new Event('input', { bubbles:true }));   /* même chemin qu'une saisie */
+  });
+  UNDO.selects.forEach(function(id){ var el = $(id); if (el.value !== st.t[id]){ el.value = st.t[id]; el.dispatchEvent(new Event('change', { bubbles:true })); } });
+  if (st.photo !== photo){
+    photo = st.photo;
+    $('drop').hidden = !!photo; cv.classList.toggle('has-photo', !!photo);
+    UNDO.exportIds.forEach(function(id){ $(id).disabled = !photo; });
+  }
+  view = { zoom:st.view.zoom, px:st.view.px, py:st.view.py };
+  if (UNDO.after) UNDO.after();
+  schedule(true);
+  lastSt = stOf(); editKey = null;
+}
+function blurField(){ var a = document.activeElement; if (a && a !== document.body && a.blur) a.blur(); }
+function undo(){
+  blurField(); check(); editKey = null;
+  if (!undoS.length){ if (typeof warn === 'function') warn('Rien à annuler.'); return; }
+  redoS.push(stOf()); applySt(undoS.pop());
+}
+function redo(){
+  blurField(); check(); editKey = null;
+  if (!redoS.length){ if (typeof warn === 'function') warn('Rien à rétablir.'); return; }
+  undoS.push(stOf()); applySt(redoS.pop());
+}
+document.addEventListener('keydown', function(e){
+  var k = (e.key || '').toLowerCase(), a = document.activeElement;
+  if (!(e.ctrlKey || e.metaKey) || e.altKey || k !== 'z') return;
+  if (a && /^(fname|fsuf|url)$/.test(a.id)) return;
+  e.preventDefault();
+  if (e.shiftKey) redo(); else undo();
+}, true);
+lastSt = stOf();
+})();
+</script>
+<script>
+/* Bouton poubelle (comme le Carrousel) : vide tous les textes, y compris le copyright ; le nom du fichier est gardé */
+(function(){
+  'use strict';
+  var btn = document.getElementById('clearTxt'); if (!btn) return;
+  btn.addEventListener('click', function(){
+    ['title','main'].forEach(function(id){
+      var el = document.getElementById(id); if (!el) return;
+      if (el.isContentEditable) el.innerHTML = ''; else el.value = '';
+      el.dispatchEvent(new Event('input', { bubbles:true }));   /* même chemin qu'une saisie : contrôle, aperçu, redessin */
+    });
+  });
 })();
 </script>
 </body>
