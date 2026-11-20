@@ -102,60 +102,220 @@ details.fold>.reset{margin:12px 16px 14px}
 }
 .trashrow{display:flex;justify-content:flex-end;margin:-6px 0 6px}
 .trashrow .trash{font-size:16px;padding:5px 10px}
+
+/* ================= Interface épurée (charte des générateurs AC Visuels, novembre 2026) =================
+   Ajoutée après l'ancienne feuille : un seul panneau, sections séparées par un filet,
+   jaune réservé aux choix actifs et à l'action principale. */
+:root{ --field:#111113; --soft:#222226; --r:8px }
+body{font:500 15px/1.35 var(--ui);padding-block:0 24px}
+button{font:600 14px var(--ui);letter-spacing:.02em;border-radius:6px;border:1px solid transparent;background:var(--soft);color:var(--fg);padding:8px 12px;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+button:hover{background:#2a2a2f;border-color:transparent}
+button:disabled{opacity:.35}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:transparent}
+button.primary:hover{filter:brightness(1.06);background:var(--accent)}
+button.ghost{background:none;color:var(--muted);padding:6px 8px}
+button.ghost:hover{color:var(--fg);background:var(--soft)}
+button.icon{padding:0;width:34px;height:34px}
+button.danger{color:var(--muted)}
+button.danger:hover{color:var(--danger)}
+button svg{display:block;flex:0 0 auto}
+
+/* barre du haut */
+.top{max-width:1180px;margin:0 auto;display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;padding:14px 0 16px}
+.top h1{white-space:nowrap;font:700 17px/1 var(--ui);letter-spacing:.06em;text-transform:uppercase;margin:0;display:flex;align-items:center;gap:10px}
+.top h1 i{width:8px;height:8px;border-radius:2px;background:var(--accent);display:block}
+.top .proj{margin-left:auto;display:flex;gap:2px;align-items:center}
+.top .status{flex-basis:100%;font-size:13px}
+.app{max-width:1180px;gap:28px}
+
+/* aperçu */
+.stage{top:12px}
+.canvas-wrap{border:0;border-radius:var(--r);box-shadow:0 0 0 1px var(--line)}
+.drop{font-size:14px;line-height:1.5}
+.badge{background:rgba(0,0,0,.55);font-size:12px;padding:5px 7px}
+.stagebar{display:flex;align-items:center;gap:10px;min-height:34px}
+.stagebar .safe-toggle{margin:0;font-size:13px;color:var(--muted)}
+.stagebar details.help{margin-left:auto}
+.slidebar{gap:2px}
+.slidebar .order{margin-left:6px}
+details.help{position:relative}
+details.help summary{list-style:none;cursor:pointer;color:var(--muted);width:34px;height:34px;display:flex;align-items:center;justify-content:center;border-radius:6px}
+details.help summary::-webkit-details-marker{display:none}
+details.help summary:hover{color:var(--fg);background:var(--soft)}
+details.help .pop{position:absolute;left:0;bottom:40px;z-index:20;width:300px;background:#1f1f22;border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;font-size:13px;line-height:1.5;color:var(--muted);box-shadow:0 10px 30px rgba(0,0,0,.5)}
+.stagebar details.help .pop{left:auto;right:0}
+details.help .pop b{color:var(--fg);font-weight:600}
+details.help .pop p{margin:0 0 6px}
+details.help .pop p:last-child{margin:0}
+.seg{border:0;background:var(--panel);border-radius:var(--r);padding:3px;gap:3px}
+.seg button{background:none;color:var(--muted);border:0;padding:7px 8px}
+.seg button+button{border-left:0}
+.seg button.on{background:var(--soft);color:var(--fg);box-shadow:inset 0 -2px 0 var(--accent)}
+.thumb{border:2px solid transparent;border-radius:6px;box-shadow:0 0 0 1px var(--line)}
+.thumb.active{border-color:var(--accent);box-shadow:none}
+.add{border:1px dashed #3a3a40;border-radius:6px;flex-direction:column;gap:2px}
+.add:hover{background:var(--bg)}
+
+/* panneau : une seule carte, sections séparées par un filet */
+.panel{display:block;background:var(--panel);border-radius:12px;padding:0 18px}
+.panel>fieldset,.panel>details.fold{display:block;border:0;border-bottom:1px solid var(--line);border-radius:0;background:none;padding:16px 0;margin:0;position:relative;min-width:0}
+.panel>:last-child{border-bottom:0}
+legend{float:left;width:100%;padding:0;margin:0 0 12px;font:600 12px/1 var(--ui);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+legend~*{clear:both}
+.trashrow{position:absolute;right:0;top:8px;margin:0}
+.trash{background:none;color:var(--muted);padding:0;width:30px;height:30px}
+.trash:hover{color:var(--fg);background:var(--soft)}
+.field{gap:6px}
+label,.lbl{font-size:13px;color:var(--muted)}
+.note{margin:0;font-size:13px}
+.note:empty{display:none}
+.note.warn{margin-top:10px}
+.status{font-size:13px;min-height:0}
+.status:empty{display:none}
+#status,#status2{margin-top:10px}
+input[type=text],input[type=url],input[type=number],textarea,select,.editor{font:500 16px/1.35 var(--ui);color:var(--fg);background:var(--field);border:1px solid var(--line);border-radius:6px;padding:9px 11px}
+input:hover,textarea:hover,select:hover,.editor:hover{border-color:#3a3a40}
+.editor b,.editor strong{color:var(--accent)}
+/* outils du texte : l'astuce n'apparaît qu'en cours de saisie */
+.toolbar{gap:6px;margin:0 0 6px}
+.toolbar button,#boldBtn{padding:6px 12px}
+.tip{color:var(--muted);font-size:13px;opacity:0;transition:opacity .15s}
+.panel:has(.editor:focus) .tip{opacity:1}
+.textshead{gap:6px;margin-bottom:12px}
+.textshead .trash{margin-left:auto}
+legend+.textshead{position:absolute;top:8px;left:90px;right:0;margin:0;justify-content:flex-end}   /* outils sur la ligne du titre « Textes » */
+legend+.textshead .trash{margin-left:0}
+.boldtools{display:flex;align-items:center;gap:8px;flex-direction:row-reverse}   /* astuce à gauche du bouton Gras */
+
+/* champ avec bouton collé : lien d'image, copyright */
+.join{display:flex;min-width:0}
+.join>input{flex:1 1 auto;min-width:0;border-radius:6px 0 0 6px}
+.join>button{flex:0 0 auto;border-radius:0 6px 6px 0;border:1px solid var(--line);border-left:0;background:var(--field);padding:0 12px}
+.join>button:hover{background:var(--soft)}
+.copy-row{display:flex;gap:0;margin-top:12px}
+.copy-row textarea{flex:1 1 auto;min-width:0;min-height:40px;field-sizing:content;font-size:14px;line-height:1.3;padding-top:10px;resize:none;border-radius:0 6px 6px 0}
+#copySym{flex:0 0 auto;align-self:stretch;width:40px;height:auto;min-height:40px;padding:0;border-radius:6px 0 0 6px;border:1px solid var(--line);border-right:0;background:var(--field);color:var(--muted);font:500 18px Arial,sans-serif}
+#copySym:hover{color:var(--fg)}
+.field:has(>.copy-row){margin-top:0!important}
+
+/* commandes segmentées */
+.typesw{border:1px solid var(--line);background:var(--field);border-radius:var(--r);padding:3px;gap:3px}
+.typesw button{background:none;color:var(--muted);border:0;border-radius:5px;padding:8px}
+.typesw button+button{border-left:0}
+.typesw button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+
+/* cases à cocher */
+.check{font-size:14px;margin:12px 0 0}
+.check input{width:16px;height:16px}
+.checks{display:flex;gap:16px;flex-wrap:wrap;margin-top:12px}
+.checks .check{margin:0}
+
+/* cadrage */
+details.fold>summary{padding:0;font:600 12px/1 var(--ui);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);gap:8px}
+details.fold>summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:flex-start}
+details.fold>summary::-webkit-details-marker{display:none}
+details.fold>summary::after{content:'';margin-left:auto;width:7px;height:7px;border:0;border-right:1.6px solid currentColor;border-bottom:1.6px solid currentColor;transform:rotate(45deg) translateY(-2px);transition:transform .15s}
+details.fold[open]>summary::after{transform:rotate(-135deg)}
+details.fold>summary:hover{color:var(--fg)}
+details.fold>.sliders{margin:14px 0 0}
+.sliders{gap:10px}
+.sl{grid-template-columns:92px minmax(0,1fr) 44px;gap:10px}
+.sl .lbl{color:var(--muted);font-size:13px}
+.sl output{order:3;font-size:13px;text-align:right;min-width:0}
+.sl input{order:2;grid-column:auto;height:22px}
+details.fold>.reset,.reset{margin:10px 0 0;padding:4px 0;background:none;color:var(--muted);font-size:13px;text-decoration:none;display:inline-flex}
+.reset:hover{background:none;color:var(--fg)}
+
+/* export */
+.prefix-row,.namerow{display:flex;align-items:stretch;min-width:0}
+.prefix,.namerow .pre,.namerow .post{display:flex;align-items:center;font:500 14px var(--ui);color:var(--muted);background:var(--field);border:1px solid var(--line);white-space:nowrap}
+.prefix,.namerow .pre{padding:0 4px 0 10px;border-right:0;border-radius:6px 0 0 6px}
+.namerow .post{padding:0 10px 0 4px;border-left:0;border-radius:0 6px 6px 0}
+.prefix-row input{border-left:0;border-radius:0 6px 6px 0;padding-left:2px}
+.namerow input{border-radius:0;border-left:0;border-right:0;padding-left:2px;padding-right:2px}
+.suffix{font-size:12px;opacity:.8}
+.exports{gap:8px;margin-top:14px}
+.exports button{padding:11px 12px}
+
+@media (max-width:820px){
+  .top .proj button{padding:6px}
+  .panel{padding:0 14px}
+}
+
+/* ouvert dans AC Visuels (cadre sous la barre « ‹ AC Visuels ») : le nom y est déjà, on ne le répète pas */
+.in-app .top h1{display:none}
+.in-app .top:not(:has(.proj)){display:none}
+.in-app body{padding-top:12px}
+
+/* barre compacte (téléphone) : annuler, rétablir et Gras / Jaune, sans remonter jusqu'au panneau */
+.mini-btns{flex-wrap:wrap;align-items:center}
+.mini-tools{display:flex;gap:6px}
+#miniNext + .mini-tools{border-left:1px solid var(--line);padding-left:8px;margin-left:4px}   /* carrousels : ‹ › | outils */
+#miniUp{position:absolute;top:8px;right:12px;margin:0}   /* remonter : tout à droite, en haut de la barre */
+.mini-info{padding-right:46px}
+.mini-tools{gap:4px}
+.mini-btns{gap:4px!important}
+.mini-btns button{min-width:34px;padding:8px 9px!important;justify-content:center}
+.mini-tools button[hidden]{display:none}
+#miniBold b{font-weight:700}
+
+/* l'attribut hidden l'emporte toujours (les boutons sont en display:inline-flex) */
+[hidden]{display:none!important}
 </style>
+<script>if (window.self !== window.top) document.documentElement.classList.add('in-app');</script>
 </head>
 <body>
 <div class="mini" id="mini" role="region" aria-label="Aperçu réduit">
   <button type="button" class="mini-pic" id="miniPic" aria-label="Revenir au grand aperçu"><canvas id="miniCv" width="270" height="480"></canvas></button>
   <div class="mini-info">Aperçu</div>
-  <div class="mini-btns"><button type="button" class="up" id="miniUp" aria-label="Revenir au grand aperçu">↑ Agrandir</button></div>
+  <div class="mini-btns">
+    <span class="mini-tools"><button type="button" id="miniUndo" title="Annuler" aria-label="Annuler"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 3 2.5 6l3 3"/><path d="M2.5 6H10a3.5 3.5 0 0 1 0 7H7"/></svg></button><button type="button" id="miniRedo" title="Rétablir" aria-label="Rétablir"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m10.5 3 3 3-3 3"/><path d="M13.5 6H6a3.5 3.5 0 0 0 0 7h3"/></svg></button><button type="button" id="miniBold" hidden><b>Gras</b></button></span><button type="button" class="up" id="miniUp" aria-label="Revenir au grand aperçu">↑ Agrandir</button></div>
 </div>
+<header class="top">
+  <h1><i></i>Vignette reels</h1>
+</header>
+
 <main class="app">
   <section class="stage" aria-label="Aperçu">
     <div class="canvas-wrap" id="wrap">
       <canvas id="cv" width="1080" height="1920" aria-label="Aperçu de la vignette"></canvas>
       <div class="safe top" id="safeTop" hidden></div><div class="safe bottom" id="safeBot" hidden></div>
-      <div class="drop" id="drop"><div><strong>Glisse l'image ici</strong>ou colle-la avec Ctrl+V<br>ou choisis un fichier<br>ou donne un lien</div></div>
+      <div class="drop" id="drop"><div><strong>Glisse l'image ici</strong>ou colle-la (Ctrl+V)</div></div>
     </div>
-    <label class="safe-toggle"><input type="checkbox" id="safeChk"> Afficher les safe zones (jamais dans l'export)</label>
-    <p class="hint">Sur l'aperçu : glisse pour recadrer, molette ou deux doigts pour zoomer.<br>Raccourcis : <b>Ctrl+Z</b> annuler · <b>Ctrl+Maj+Z</b> rétablir.</p>
+    <div class="stagebar">
+      <label class="safe-toggle"><input type="checkbox" id="safeChk"> Afficher les safe zones</label>
+      <details class="help"><summary title="Aide et raccourcis" aria-label="Aide et raccourcis"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M6.4 6.3a1.7 1.7 0 0 1 3.2.6c0 1.1-1.6 1.4-1.6 2.4"/><path d="M8 11.4v.1"/></svg></summary><div class="pop"><p>Sur l'aperçu : glisse pour recadrer, molette ou deux doigts pour zoomer.</p><p>Raccourcis : <b>Ctrl+Z</b> annuler · <b>Ctrl+Maj+Z</b> rétablir.</p></div></details>
+    </div>
   </section>
 
   <section class="panel">
-    <div>
-      <h1>AlloCiné Vignette Reels</h1>
-      <p class="sub">Vignette Reels · 1080 × 1920</p>
-    </div>
 
     <fieldset>
       <legend>Image de fond</legend>
       <div class="row">
-        <button type="button" id="pick">Choisir un fichier…</button>
+        <button type="button" id="pick" title="Choisir une image"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="12" height="10" rx="1.5"/><circle cx="6" cy="6.5" r="1.2"/><path d="m2.5 12 3.5-3.5 2.5 2.5 2-2 3 3"/></svg>Importer</button>
         <input type="file" id="file" accept="image/*" hidden>
       </div>
-      <div class="row" style="margin-top:10px">
-        <div class="field">
-          <label for="url">Ou un lien d'image</label>
-          <input type="url" id="url" placeholder="https://…" inputmode="url" autocomplete="off">
-        </div>
-        <button type="button" id="loadUrl" style="align-self:end">Charger</button>
+      <div class="join after" style="margin-top:8px">
+        <input type="url" id="url" placeholder="ou colle un lien d'image" inputmode="url" autocomplete="off" aria-label="Lien d'image">
+        <button type="button" id="loadUrl">Charger</button>
       </div>
-      <div class="status" id="status" role="status" aria-live="polite" style="margin-top:10px"></div>
+      <div class="status" id="status" role="status" aria-live="polite"></div>
     </fieldset>
 
     <details class="fold" id="fold">
-      <summary>Zoom et position de l'image</summary>
+      <summary>Cadrage</summary>
       <div class="sliders">
         <div class="sl"><span class="lbl">Zoom</span><output id="o_zoom">100 %</output><input type="range" id="zoom" min="100" max="500" step="0.1" value="100"></div>
-        <div class="sl" id="slx"><span class="lbl">Gauche ↔ droite</span><output id="o_px">50</output><input type="range" id="px" min="0" max="100" step="0.1" value="50"></div>
-        <div class="sl" id="sly"><span class="lbl">Haut ↔ bas</span><output id="o_py">50</output><input type="range" id="py" min="0" max="100" step="0.1" value="50"></div>
+        <div class="sl" id="slx"><span class="lbl">Horizontal</span><output id="o_px">50</output><input type="range" id="px" min="0" max="100" step="0.1" value="50"></div>
+        <div class="sl" id="sly"><span class="lbl">Vertical</span><output id="o_py">50</output><input type="range" id="py" min="0" max="100" step="0.1" value="50"></div>
       </div>
-      <button type="button" class="reset" id="reset">Tout remettre à zéro</button>
+      <button type="button" class="reset" id="reset"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8a5 5 0 1 0 1.5-3.6"/><path d="M3 2.5v2.5h2.5"/></svg>Réinitialiser</button>
     </details>
 
     <fieldset>
       <legend>Textes</legend>
-      <div class="trashrow"><button type="button" class="trash" id="clearTxt" title="Vider tous les textes" aria-label="Vider tous les textes">🗑</button></div>
+      <div class="trashrow"><button type="button" class="trash" id="clearTxt" title="Vider tous les textes" aria-label="Vider tous les textes"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5"/></svg></button></div>
       <div class="field">
         <label for="title">Rubrique</label>
         <input type="text" id="title" value="Rubrique" autocomplete="off" spellcheck="false">
@@ -164,11 +324,11 @@ details.fold>.reset{margin:12px 16px 14px}
         <label id="mainLbl">Texte principal</label>
         <div class="toolbar">
           <button type="button" id="boldBtn" title="Mettre en gras (Ctrl+B)">Gras</button>
-          <span class="tip">Sélectionne des mots, puis clique sur Gras (ou Ctrl+B).</span>
+          <span class="tip">Sélectionne des mots, puis Gras</span>
         </div>
         <div class="editor" id="main" contenteditable="true" role="textbox" aria-multiline="true" aria-labelledby="mainLbl" spellcheck="false">Titre de la vidéo qui donne envie <b>mots importants</b> 3 lignes maximum</div>
       </div>
-      <p class="note" id="textNote">Le texte passe à la ligne tout seul, 3 lignes maximum. Entrée force un retour à la ligne.</p>
+      <p class="note" id="textNote"></p>
     </fieldset>
 
     <fieldset>
@@ -181,7 +341,7 @@ details.fold>.reset{margin:12px 16px 14px}
       <div class="exports one">
         <button type="button" class="primary" id="dlJpg" disabled>Télécharger .jpg</button>
       </div>
-      <div class="status" id="status2" role="status" aria-live="polite" style="margin-top:10px"></div>
+      <div class="status" id="status2" role="status" aria-live="polite"></div>
     </fieldset>
   </section>
 </main>
@@ -846,6 +1006,36 @@ lastSt = stOf();
       el.dispatchEvent(new Event('input', { bubbles:true }));   /* même chemin qu'une saisie : contrôle, aperçu, redessin */
     });
   });
+})();
+</script>
+<script>
+/* Barre compacte : Annuler / Rétablir (mêmes actions que Ctrl+Z / Ctrl+Maj+Z) et copie du bouton Gras / Jaune de la slide */
+(function(){
+  'use strict';
+  var $ = function(id){ return document.getElementById(id); };
+  function key(shift){
+    var a = document.activeElement;
+    if (a && /^(fname|fsuf|url)$/.test(a.id)) a.blur();   /* ces champs gardent leur propre Ctrl+Z */
+    document.dispatchEvent(new KeyboardEvent('keydown', { key:'z', code:'KeyZ', ctrlKey:true, shiftKey:shift, bubbles:true, cancelable:true }));
+  }
+  $('miniUndo').addEventListener('click', function(){ key(false); });
+  $('miniRedo').addEventListener('click', function(){ key(true); });
+  var src = $('boldBtn'), mb = $('miniBold');
+  if (!src) return;   /* page sans gras */
+  /* garde la sélection de texte : le bouton ne prend pas le focus */
+  ['pointerdown','mousedown'].forEach(function(t){ mb.addEventListener(t, function(e){ e.preventDefault(); }); });
+  mb.addEventListener('click', function(){ src.click(); });
+  function sync(){
+    var h = src.offsetParent === null;   /* caché si la slide n'a pas de gras (citation, slides top…) */
+    if (mb.hidden !== h) mb.hidden = h;   /* n'écrire que si ça change : sinon l'observateur se relance sans fin */
+    var t = src.textContent.trim();
+    if (mb.textContent !== t) mb.innerHTML = '<b>' + t + '</b>';
+    if (mb.title !== src.title) mb.title = src.title;
+  }
+  new MutationObserver(sync).observe(document.body, { subtree:true, attributes:true, attributeFilter:['hidden'] });
+  new MutationObserver(sync).observe(src, { childList:true, subtree:true, characterData:true });
+  new MutationObserver(sync).observe($('mini'), { attributes:true, attributeFilter:['class'] });
+  sync();
 })();
 </script>
 </body>
